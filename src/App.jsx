@@ -860,6 +860,7 @@ const App = () => {
               ))}
             </div>
           </section>
+        )}
 
         {/* 給家長的正向溝通心法 */}
         <section className="bg-white rounded-[3rem] p-8 md:p-16 shadow-xl shadow-slate-100 border border-slate-100 mb-12">
