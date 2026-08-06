@@ -1,12 +1,14 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+// 網站建立自楊家驊老師 The website was created by Teacher ChiahuaYang
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   Clipboard, Upload, Loader2, BarChart3, 
   ShieldCheck, Eye, Edit3, Check, Scale, 
   AlertCircle, X, Info, BookOpen, ChevronRight, 
   MessageSquare, Layers, Target, Activity, ScanLine, Calculator,
   MousePointer2, Ruler, Crosshair, FunctionSquare, Printer, Sparkles, Lightbulb, Heart, Brain, Zap, Globe, Leaf,
-  CheckCircle, Sun, Smile, FileText, Users
+  CheckCircle, Sun, Smile, FileText, Users, History, Trash2
 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // --- 常數與配置 ---
 const SUBJECTS = ['國語', '數學', '社會', '英文', '自然'];
@@ -89,6 +91,17 @@ const SUBJECT_ADVICE = {
 
 const App = () => {
   // --- 狀態管理 ---
+  const [history, setHistory] = useState(() => {
+    const saved = localStorage.getItem('grade_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [testName, setTestName] = useState('');
+  const [showSavePrompt, setShowSavePrompt] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('grade_history', JSON.stringify(history));
+  }, [history]);
+
   const [subjectData, setSubjectData] = useState(
     SUBJECTS.reduce((acc, sub) => ({
       ...acc,
@@ -356,7 +369,33 @@ const App = () => {
   const handleConfirmData = () => { 
     setSubjectData(tempData); 
     setShowVerifyModal(false); 
-    setShowSuccessModal(true); 
+    
+    const d = new Date();
+    setTestName(`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} 測驗`);
+    setShowSavePrompt(true);
+  };
+
+  const handleSaveHistory = () => {
+    const newRecord = {
+      id: Date.now(),
+      name: testName,
+      date: new Date().toISOString(),
+      data: tempData
+    };
+    setHistory([...history, newRecord]);
+    setShowSavePrompt(false);
+    setShowSuccessModal(true);
+  };
+
+  const handleSkipSave = () => {
+    setShowSavePrompt(false);
+    setShowSuccessModal(true);
+  };
+
+  const handleClearHistory = () => {
+    if(window.confirm('確定要清除所有歷史紀錄嗎？這個動作無法復原。')) {
+      setHistory([]);
+    }
   };
 
   const handleViewReport = () => {
@@ -464,6 +503,29 @@ const App = () => {
             >
               查看詳細報告
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 儲存測驗對話框 */}
+      {showSavePrompt && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl p-8 flex flex-col items-center text-center scale-in-center border-4 border-white">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6 text-blue-600">
+              <Clipboard size={32} />
+            </div>
+            <h3 className="text-2xl font-black text-slate-800 mb-2">為這次測驗命名</h3>
+            <p className="text-slate-500 mb-6 font-medium">記錄下來，方便未來追蹤進步軌跡！</p>
+            <input 
+              type="text" 
+              value={testName}
+              onChange={(e) => setTestName(e.target.value)}
+              className="w-full text-center font-bold text-lg bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 outline-none focus:border-blue-400 focus:bg-white mb-8"
+            />
+            <div className="flex gap-4 w-full">
+              <button onClick={handleSkipSave} className="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-50 rounded-2xl transition-colors text-sm md:text-base">不儲存直接看</button>
+              <button onClick={handleSaveHistory} className="flex-1 py-4 rounded-2xl font-black text-white bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 shadow-xl shadow-blue-200 transition-all hover:-translate-y-1 text-sm md:text-base">儲存紀錄</button>
+            </div>
           </div>
         </div>
       )}
@@ -745,6 +807,59 @@ const App = () => {
             );
           })}
         </div>
+
+        {/* 歷史成長軌跡區塊 */}
+        {history.length > 0 && (
+          <section className="bg-white rounded-[3rem] md:rounded-[4rem] p-8 md:p-12 lg:p-16 shadow-xl shadow-slate-100 border border-slate-100 relative overflow-hidden mb-16">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 pb-6 border-b border-slate-100">
+              <div className="flex items-center gap-4">
+                <div className="p-4 bg-indigo-100 rounded-2xl text-indigo-500 shadow-sm"><History size={28}/></div>
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-black text-slate-800">成長軌跡</h2>
+                  <p className="text-slate-400 font-bold mt-1">追蹤每一次的進步與變化</p>
+                </div>
+              </div>
+              <button onClick={handleClearHistory} className="flex items-center gap-2 px-4 py-2 text-rose-500 font-bold hover:bg-rose-50 rounded-xl transition-colors">
+                <Trash2 size={16} /> 清除紀錄
+              </button>
+            </div>
+            
+            <div className="h-80 w-full mb-8">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={history.map(record => {
+                  const dataPoint = { name: record.name };
+                  SUBJECTS.forEach(sub => { dataPoint[sub] = record.data[sub]?.score || 0; });
+                  return dataPoint;
+                })} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="name" tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} />
+                  <YAxis domain={[0, 100]} tick={{fill: '#94a3b8', fontSize: 12}} tickLine={false} axisLine={false} />
+                  <RechartsTooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)', fontWeight: 'bold'}} />
+                  <Legend iconType="circle" wrapperStyle={{fontSize: '12px', fontWeight: 'bold', color: '#64748b'}} />
+                  <Line type="monotone" dataKey="國語" stroke="#ef4444" strokeWidth={3} dot={{strokeWidth: 2, r: 4}} activeDot={{r: 6}} />
+                  <Line type="monotone" dataKey="數學" stroke="#3b82f6" strokeWidth={3} dot={{strokeWidth: 2, r: 4}} activeDot={{r: 6}} />
+                  <Line type="monotone" dataKey="社會" stroke="#f59e0b" strokeWidth={3} dot={{strokeWidth: 2, r: 4}} activeDot={{r: 6}} />
+                  <Line type="monotone" dataKey="英文" stroke="#10b981" strokeWidth={3} dot={{strokeWidth: 2, r: 4}} activeDot={{r: 6}} />
+                  <Line type="monotone" dataKey="自然" stroke="#8b5cf6" strokeWidth={3} dot={{strokeWidth: 2, r: 4}} activeDot={{r: 6}} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {history.map((record, idx) => (
+                <div key={record.id} className="bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:shadow-md transition-shadow cursor-pointer"
+                     onClick={() => { setSubjectData(record.data); handleViewReport(); }}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-black text-slate-700 text-lg">{record.name}</span>
+                    <span className="text-xs font-bold text-slate-400 bg-white px-2 py-1 rounded-lg border border-slate-100">#{idx + 1}</span>
+                  </div>
+                  <div className="text-sm font-medium text-slate-500">
+                    點擊回顧詳細分析報告 <ChevronRight size={14} className="inline"/>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
         {/* 給家長的正向溝通心法 */}
         <section className="bg-white rounded-[3rem] p-8 md:p-16 shadow-xl shadow-slate-100 border border-slate-100 mb-12">
